@@ -11,6 +11,9 @@ import numpy as np
 os.makedirs("samples", exist_ok=True)
 W, H, FPS, TOTAL = 640, 360, 25, 250
 out = cv2.VideoWriter("samples/intruder.mp4", cv2.VideoWriter_fourcc(*"mp4v"), FPS, (W, H))
+if not out.isOpened():
+    out.release()
+    raise SystemExit("[ERROR] Could not create samples/intruder.mp4. Check MP4 codec support and folder permissions.")
 
 # Static background: wall, floor, door, window
 bg = np.full((H, W, 3), (170, 160, 150), np.uint8)

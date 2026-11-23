@@ -22,7 +22,6 @@ from collections import deque
 from datetime import datetime
 
 import cv2
-import numpy as np
 
 # ----------------------------- CONFIGURATION ------------------------------ #
 FRAME_WIDTH = 640          # every frame is resized to this width (faster processing)
@@ -198,18 +197,26 @@ def main():
             if alert and cooldown == 0:     # save evidence + log it
                 name = datetime.now().strftime("alert_%Y%m%d_%H%M%S_") + f"{frame_no}.jpg"
                 path = os.path.join(ALERT_DIR, name)
-                cv2.imwrite(path, display)
-                log_event(log, frame_no, len(contours), len(faces), path)
-                log_file.flush()
-                alerts_saved += 1
+                if cv2.imwrite(path, display):
+                    log_event(log, frame_no, len(contours), len(faces), path)
+                    log_file.flush()
+                    alerts_saved += 1
+                    print(f"[ALERT] Motion at frame {frame_no} -> {path}")
+                else:
+                    print(f"[ERROR] Could not save alert snapshot: {path}", file=sys.stderr)
                 cooldown = COOLDOWN_FRAMES
-                print(f"[ALERT] Motion at frame {frame_no} -> {path}")
 
             if args.output:
                 if writer is None:
                     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
                     writer = cv2.VideoWriter(args.output, fourcc, fps,
                                              (display.shape[1], display.shape[0]))
+                    if not writer.isOpened():
+                        writer.release()
+                        cap.release()
+                        log_file.close()
+                        cv2.destroyAllWindows()
+                        sys.exit(f"[ERROR] Could not open output video: {args.output}")
                 writer.write(display)
 
         if not args.headless:
@@ -218,7 +225,11 @@ def main():
             if key == ord("q"):
                 break
             elif key == ord("s"):
-                cv2.imwrite(os.path.join(ALERT_DIR, f"screenshot_{frame_no}.jpg"), display)
+                path = os.path.join(ALERT_DIR, f"screenshot_{frame_no}.jpg")
+                if not cv2.imwrite(path, display):
+                    print(f"[ERROR] Could not save screenshot: {path}", file=sys.stderr)
+                else:
+                    print(f"[INFO] Screenshot saved: {path}")
             elif key == ord(" "):
                 paused = not paused
 
